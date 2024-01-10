@@ -1,0 +1,49 @@
+version: "3.8"
+
+services:
+  lamp:
+    build:
+      dockerfile: ./Dockerfile
+    depends_on:
+      - vault
+      - vaultsetup
+    # restart: "no"
+    network_mode: "bridge"
+    entrypoint: [ "sh", "-c", "/sensitive/helper-agent.sh"] 
+    volumes:
+      - type: bind
+        source: ./../sensitive
+        target: /sensitive
+  vault:
+    ports:
+      - "5696:5696"
+      - "8200:8200"
+      - "8201:8201"
+    image: "hashicorp/vault:latest"
+    cap_add:
+      - IPC_LOCK
+    environment:
+      - 'VAULT_ADDR=http://127.0.0.1:8200'
+      - 'VAULT_DEV_ROOT_TOKEN_ID=root'
+      - 'VAULT_SKIP_VERIFY=true'
+    volumes:
+      - type: bind
+        source: ./vault.hcl
+        target: /opt/vault/config/vault.hcl
+    entrypoint: [ "sh", "-c", "vault server -config /opt/vault/config/vault.hcl -log-level=trace"] 
+  vaultsetup:
+    expose:
+      - "8200"
+    image: "ubuntu:22.04"
+    depends_on:
+      - vault
+    # restart: "no"
+    network_mode: "bridge"
+    entrypoint: [ "sh", "-c", "/sensitive/helper-setup.sh"] 
+    volumes:
+      - type: bind
+        source: ./../terraform
+        target: /terraform
+      - type: bind
+        source: ./../sensitive
+        target: /sensitive
